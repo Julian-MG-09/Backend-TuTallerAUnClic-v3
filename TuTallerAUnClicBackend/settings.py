@@ -148,8 +148,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Sin paginacion por defecto
+    'DEFAULT_PAGINATION_CLASS': None,
+    'PAGE_SIZE': None,
 }
-
 # ======================================================
 # JWT CONFIG
 # ======================================================
