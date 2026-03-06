@@ -9,6 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
 from .models import Rol
 from .serializers import RolSerializer
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 class RolListView(generics.ListAPIView):
     queryset = Rol.objects.filter(activo=True)
@@ -569,3 +570,17 @@ class AdminDashboardView(APIView):
             'top_establecimientos':     top_establecimientos,
             'ultimas_prestaciones':     ultimas_prestaciones,
         })
+
+
+class PerfilUpdateView(generics.UpdateAPIView):
+    serializer_class   = UsuarioSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes     = [MultiPartParser, FormParser, JSONParser]
+
+    def get_object(self):
+        return self.request.user
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context

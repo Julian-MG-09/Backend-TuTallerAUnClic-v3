@@ -25,6 +25,7 @@ from .views import (
     ServicioListCreateView, AgendaRetrieveUpdateDestroyView
 )
 from .views import AdminDashboardView
+from .views import PerfilUpdateView
 
 urlpatterns = [
     path('', home),
@@ -106,6 +107,8 @@ urlpatterns = [
     path('api/admin/tipos-servicio/<int:pk>/',        TipoServicioRetrieveUpdateDestroyView.as_view()),
 
     path('api/admin/dashboard/', AdminDashboardView.as_view()),
+
+    path('usuarios/perfil/update/', PerfilUpdateView.as_view()),
 ]
 
 

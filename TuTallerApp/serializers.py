@@ -9,28 +9,26 @@ class RolSerializer(serializers.ModelSerializer):
         fields = ['id', 'nombre', 'descripcion']
 
 class UsuarioSerializer(serializers.ModelSerializer):
-    password    = serializers.CharField(write_only=True)
-    rol_nombre  = serializers.CharField(source='rol.nombre', read_only=True)
+    password   = serializers.CharField(write_only=True)
+    rol_nombre = serializers.CharField(source='rol.nombre', read_only=True)
+    foto_url   = serializers.SerializerMethodField()
 
     class Meta:
         model  = Usuario
         fields = [
             'id', 'username', 'first_name', 'last_name',
-            'email', 'telefono', 'rol', 'rol_nombre', 'password',
-            'is_active', 'date_joined'
+            'email', 'telefono', 'rol', 'rol_nombre',
+            'password', 'is_active', 'date_joined',
+            'foto', 'foto_url',  # <-- ambos aquí
         ]
 
-    def create(self, validated_data):
-        user = Usuario.objects.create_user(
-            username   = validated_data['username'],
-            email      = validated_data.get('email', ''),
-            password   = validated_data['password'],
-            first_name = validated_data.get('first_name', ''),
-            last_name  = validated_data.get('last_name', ''),
-            telefono   = validated_data.get('telefono', ''),
-            rol        = validated_data.get('rol'),
-        )
-        return user
+    def get_foto_url(self, obj):
+        if obj.foto:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.foto.url)
+            return obj.foto.url
+        return None
 
 
 class VehiculoSerializer(serializers.ModelSerializer):
