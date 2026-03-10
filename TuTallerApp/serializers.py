@@ -9,7 +9,7 @@ class RolSerializer(serializers.ModelSerializer):
         fields = ['id', 'nombre', 'descripcion']
 
 class UsuarioSerializer(serializers.ModelSerializer):
-    password   = serializers.CharField(write_only=True)
+    password   = serializers.CharField(write_only=True, required=False)
     rol_nombre = serializers.CharField(source='rol.nombre', read_only=True)
     foto_url   = serializers.SerializerMethodField()
 
@@ -19,7 +19,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'id', 'username', 'first_name', 'last_name',
             'email', 'telefono', 'rol', 'rol_nombre',
             'password', 'is_active', 'date_joined',
-            'foto', 'foto_url',  # <-- ambos aquí
+            'foto', 'foto_url',
         ]
 
     def get_foto_url(self, obj):
@@ -30,6 +30,21 @@ class UsuarioSerializer(serializers.ModelSerializer):
             return obj.foto.url
         return None
 
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = Usuario(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
 
 class VehiculoSerializer(serializers.ModelSerializer):
     class Meta:

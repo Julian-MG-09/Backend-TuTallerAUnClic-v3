@@ -11,6 +11,8 @@ from .models import Rol
 from .serializers import RolSerializer
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
+from rest_framework import status
+
 class RolListView(generics.ListAPIView):
     queryset = Rol.objects.filter(activo=True)
     serializer_class = RolSerializer
@@ -67,12 +69,17 @@ class LoginView(TokenObtainPairView):
     pass
 
 
-class PerfilView(APIView):
+class PerfilView(generics.RetrieveAPIView):
+    serializer_class   = UsuarioSerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        serializer = UsuarioSerializer(request.user)
-        return Response(serializer.data)
+    def get_object(self):
+        return self.request.user
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
 # ==============================
