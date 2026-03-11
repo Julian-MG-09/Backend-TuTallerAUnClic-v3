@@ -40,6 +40,8 @@ from .serializers import (
 
 from .permissions import EsCliente, EsEmpresa, EsAdmin
 
+from django.db.models import Q, Count, Avg
+
 
 # ==============================
 # 🔐 AUTENTICACIÓN
@@ -591,3 +593,60 @@ class PerfilUpdateView(generics.UpdateAPIView):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+
+from django.utils import timezone
+from .models import Anuncio
+from .serializers import AnuncioSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+
+# Publica — solo anuncios activos y vigentes
+class AnuncioListView(generics.ListAPIView):
+    serializer_class   = AnuncioSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        hoy = timezone.now().date()
+        return Anuncio.objects.filter(
+            activo=True
+        ).filter(
+            Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=hoy)
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=hoy)
+        )
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+# Admin — CRUD completo
+class AnuncioAdminViewSet(generics.ListCreateAPIView):
+    serializer_class   = AnuncioSerializer
+    permission_classes = [EsAdmin]
+    parser_classes     = [MultiPartParser, FormParser]
+    queryset           = Anuncio.objects.all()
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+class AnuncioAdminDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class   = AnuncioSerializer
+    permission_classes = [EsAdmin]
+    parser_classes     = [MultiPartParser, FormParser]
+    queryset           = Anuncio.objects.all()
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+
+class StatsPublicasView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from django.db.models import Avg
+        return Response({
+            'total_establecimientos': Establecimiento.objects.count(),
+            'total_usuarios':         Usuario.objects.count(),
+            'total_prestaciones':     PrestacionServicio.objects.count(),
+            'calificacion_promedio':  round(
+                Calificacion.objects.aggregate(p=Avg('puntuacion'))['p'] or 0, 1
+            ),
+        })

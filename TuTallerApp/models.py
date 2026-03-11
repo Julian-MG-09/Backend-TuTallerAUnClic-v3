@@ -148,3 +148,34 @@ class Notificacion(models.Model):
 
     def __str__(self):
         return f"{self.usuario.username} - {self.titulo}"
+
+        
+
+class Anuncio(models.Model):
+    TIPO_CHOICES = [
+        ('imagen',        'Solo imagen'),
+        ('imagen_texto',  'Imagen con texto'),
+        ('imagen_boton',  'Imagen con boton'),
+    ]
+
+    titulo       = models.CharField(max_length=200, blank=True)
+    descripcion  = models.TextField(blank=True)
+    imagen       = models.ImageField(upload_to='anuncios/')
+    tipo         = models.CharField(max_length=20, choices=TIPO_CHOICES, default='imagen')
+    texto_boton  = models.CharField(max_length=50, blank=True)   # ej: "Ver más"
+    url_boton    = models.CharField(max_length=500, blank=True)  # ej: /establecimientos/5
+    establecimiento = models.ForeignKey(
+        'Establecimiento', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='anuncios'
+    )
+    activo       = models.BooleanField(default=True)
+    orden        = models.PositiveIntegerField(default=0)
+    fecha_inicio = models.DateField(null=True, blank=True)
+    fecha_fin    = models.DateField(null=True, blank=True)
+    creado_en    = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['orden', '-creado_en']
+
+    def __str__(self):
+        return self.titulo or f'Anuncio #{self.id}'

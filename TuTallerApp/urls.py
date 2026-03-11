@@ -26,6 +26,8 @@ from .views import (
 )
 from .views import AdminDashboardView
 from .views import PerfilUpdateView
+from .views import AnuncioListView, AnuncioAdminViewSet, AnuncioAdminDetailView, StatsPublicasView
+
 
 urlpatterns = [
     path('', home),
@@ -109,6 +111,16 @@ urlpatterns = [
     path('api/admin/dashboard/', AdminDashboardView.as_view()),
 
     path('usuarios/perfil/update/', PerfilUpdateView.as_view()),
+
+
+    # Publica
+    path('anuncios/', AnuncioListView.as_view()),
+    
+    # Admin
+    path('api/admin/anuncios/',      AnuncioAdminViewSet.as_view()),
+    path('api/admin/anuncios/<pk>/', AnuncioAdminDetailView.as_view()),
+
+    path('stats/', StatsPublicasView.as_view()),
 ]
 
 

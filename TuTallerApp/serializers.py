@@ -112,3 +112,27 @@ class TipoServicioSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoServicio
         fields = '__all__'
+
+
+from .models import Anuncio
+
+class AnuncioSerializer(serializers.ModelSerializer):
+    imagen_url      = serializers.SerializerMethodField()
+    establecimiento_nombre = serializers.CharField(
+        source='establecimiento.nombre', read_only=True
+    )
+
+    class Meta:
+        model  = Anuncio
+        fields = [
+            'id', 'titulo', 'descripcion', 'imagen', 'imagen_url',
+            'tipo', 'texto_boton', 'url_boton',
+            'establecimiento', 'establecimiento_nombre',
+            'activo', 'orden', 'fecha_inicio', 'fecha_fin', 'creado_en'
+        ]
+
+    def get_imagen_url(self, obj):
+        request = self.context.get('request')
+        if obj.imagen and request:
+            return request.build_absolute_uri(obj.imagen.url)
+        return obj.imagen.url if obj.imagen else None
