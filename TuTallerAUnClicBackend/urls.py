@@ -9,6 +9,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('TuTallerApp.urls')),
     path('usuarios/login/refresh/', TokenRefreshView.as_view()),
+    
 ]
 
 # Archivos media en desarrollo

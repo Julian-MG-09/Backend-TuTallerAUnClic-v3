@@ -11,13 +11,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Forzar lectura del .env desde la raíz
 config = Config(RepositoryEnv(os.path.join(BASE_DIR, '.env')))
 
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = 'django-insecure-9xKfP3aL8zQwR2vT6mN4yH7uB1cD5eF8gJ0kLpXs'
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config(
-    'ALLOWED_HOSTS',
-    default='127.0.0.1,localhost'
-).split(',')
+ALLOWED_HOSTS = ['*']
 
 # ======================================================
 # APLICACIONES
@@ -39,6 +36,7 @@ INSTALLED_APPS = [
 
     # App principal
     'TuTallerApp',
+   
 ]
 
 # ======================================================
@@ -88,8 +86,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'tutalleraunclic',
-        'USER': 'tutalleraunclic_user',
-        'PASSWORD': '123456',
+        'USER': 'root',
+        'PASSWORD': '',
         'HOST': 'localhost',
         'PORT': '3306',
     }
@@ -172,8 +170,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = f"Tu Taller a un Clic <{EMAIL_HOST_USER}>"
 
 # ======================================================

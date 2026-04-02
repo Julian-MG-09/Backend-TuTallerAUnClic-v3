@@ -1,6 +1,5 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.utils import timezone
 from datetime import date
 
 from .models import (
@@ -9,8 +8,7 @@ from .models import (
     Vehiculo,
     Establecimiento,
     PrestacionServicio,
-    Calificacion,
-    Agenda
+    Calificacion
 )
 
 
@@ -44,8 +42,10 @@ class RegistroForm(UserCreationForm):
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
+
         if Usuario.objects.filter(email=email).exists():
             raise forms.ValidationError("Este correo ya está registrado.")
+
         return email
 
 
@@ -80,8 +80,10 @@ class VehiculoForm(forms.ModelForm):
 
     def clean_placa(self):
         placa = self.cleaned_data.get('placa')
+
         if Vehiculo.objects.filter(placa=placa).exists():
             raise forms.ValidationError("Esta placa ya está registrada.")
+
         return placa
 
 
@@ -130,7 +132,7 @@ class EstablecimientoForm(forms.ModelForm):
 
 
 # ==============================
-# 📅 CREAR CITA (PrestacionServicio)
+# 📅 CREAR CITA
 # ==============================
 
 class PrestacionServicioForm(forms.ModelForm):
@@ -154,20 +156,22 @@ class PrestacionServicioForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+
         establecimiento = cleaned_data.get('establecimiento')
         agenda = cleaned_data.get('agenda')
         fecha = cleaned_data.get('fecha')
 
+        # 🔥 fecha válida
         if fecha and fecha < date.today():
             raise forms.ValidationError("No puedes agendar en fechas pasadas.")
 
         if establecimiento and agenda:
 
-            # Validar horario permitido
+            # 🔥 horario válido
             if not (establecimiento.hora_apertura <= agenda.hora <= establecimiento.hora_cierre):
                 raise forms.ValidationError("Horario fuera del rango permitido.")
 
-            # Evitar doble reserva
+            # 🔥 evitar doble reserva
             if PrestacionServicio.objects.filter(
                 establecimiento=establecimiento,
                 agenda=agenda,
@@ -202,7 +206,7 @@ class CalificacionForm(forms.ModelForm):
     def clean_puntuacion(self):
         puntuacion = self.cleaned_data.get('puntuacion')
 
-        if puntuacion < 1 or puntuacion > 5:
+        if puntuacion is None or puntuacion < 1 or puntuacion > 5:
             raise forms.ValidationError("La puntuación debe estar entre 1 y 5.")
 
         return puntuacion

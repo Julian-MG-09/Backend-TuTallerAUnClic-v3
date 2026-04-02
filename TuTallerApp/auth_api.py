@@ -3,14 +3,48 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
-
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
-
 from django.contrib.auth import authenticate
-
 from .models import Usuario
 from .serializers import UsuarioSerializer
+from rest_framework.decorators import api_view
+
+
+
+
+
+
+@api_view(['POST'])
+def login(request):
+    email = request.data.get("email")
+    password = request.data.get("password")
+
+    user = authenticate(username=email, password=password)
+
+    if user is None:
+        return Response({"error": "Credenciales inválidas"}, status=400)
+
+    refresh = RefreshToken.for_user(user)
+
+    return Response({
+        "token": str(refresh.access_token),
+        "usuario": UsuarioSerializer(user).data
+    })
+
+
+@api_view(['POST'])
+def register(request):
+    serializer = UsuarioSerializer(data=request.data)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"mensaje": "Usuario creado"}, status=201)
+
+    return Response(serializer.errors, status=400)
+
+
 
 
 # =====================================
@@ -24,7 +58,7 @@ class RegistroAPIView(generics.CreateAPIView):
 
 
 # =====================================
-# 🔑 LOGIN PERSONALIZADO (JWT)
+# 🔑 LOGIN (JWT)
 # =====================================
 
 class LoginAPIView(APIView):
@@ -51,7 +85,10 @@ class LoginAPIView(APIView):
         return Response({
             "refresh": str(refresh),
             "access": str(refresh.access_token),
-            "usuario": UsuarioSerializer(user).data
+            "usuario": UsuarioSerializer(
+                user,
+                context={'request': request}  # 🔥 IMPORTANTE (foto)
+            ).data
         })
 
 
@@ -64,15 +101,43 @@ class RefreshTokenAPIView(TokenRefreshView):
 
 
 # =====================================
-# 👤 PERFIL DEL USUARIO
+# 👤 PERFIL
 # =====================================
 
 class PerfilAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        serializer = UsuarioSerializer(request.user)
+        serializer = UsuarioSerializer(
+            request.user,
+            context={'request': request}
+        )
         return Response(serializer.data)
+
+
+# =====================================
+# ✏️ ACTUALIZAR PERFIL (CON FOTO)
+# =====================================
+
+class ActualizarPerfilAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def put(self, request):
+        user = request.user
+
+        serializer = UsuarioSerializer(
+            user,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # =====================================
@@ -103,7 +168,7 @@ class CambiarPasswordAPIView(APIView):
 
 
 # =====================================
-# 🚪 LOGOUT (BLACKLIST JWT)
+# 🚪 LOGOUT
 # =====================================
 
 class LogoutAPIView(APIView):
@@ -111,12 +176,12 @@ class LogoutAPIView(APIView):
 
     def post(self, request):
 
+        refresh_token = request.data.get("refresh")
+
+        if not refresh_token:
+            raise ValidationError("Debes enviar el refresh token.")
+
         try:
-            refresh_token = request.data.get("refresh")
-
-            if not refresh_token:
-                raise ValidationError("Debes enviar el refresh token.")
-
             token = RefreshToken(refresh_token)
             token.blacklist()
 
@@ -127,3 +192,15 @@ class LogoutAPIView(APIView):
                 {"error": "Token inválido o expirado"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+# =====================================
+# 🗑 ELIMINAR CUENTA
+# =====================================
+
+class EliminarCuentaAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        request.user.delete()
+        return Response({"mensaje": "Cuenta eliminada correctamente"})
