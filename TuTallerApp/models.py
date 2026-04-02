@@ -69,6 +69,8 @@ class Servicio(models.Model):
 
     def __str__(self):
         return self.nombre
+    
+    
 
 
 # ==============================
@@ -91,12 +93,10 @@ from django.conf import settings
 
 class Agenda(models.Model):
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    establecimiento = models.ForeignKey("Establecimiento", on_delete=models.CASCADE)  # 🔥 NUEVO
     fecha = models.DateField()
     hora = models.TimeField()
     descripcion = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.usuario} - {self.fecha} - {self.hora}"
     
     
     

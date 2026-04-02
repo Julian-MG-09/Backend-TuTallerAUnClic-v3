@@ -4,9 +4,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from django.db.models import Avg, Count
-
-from rest_framework.response import Response
-
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -15,7 +12,7 @@ from django.utils import timezone
 
 from .models import (
     Usuario,
-    Establecimiento,
+    Establecimiento,Cita,
     Servicio,
     Vehiculo,
     PrestacionServicio,
@@ -23,7 +20,7 @@ from .models import (
     Notificacion
 )
 
-from .serializers import (
+from .serializers import (CitaSerializer,
     UsuarioSerializer,
     EstablecimientoSerializer,
     ServicioSerializer,
@@ -257,39 +254,22 @@ class MisVehiculosAPIView(generics.ListAPIView):
 # 📅 CITAS
 # =====================================
 
+
+
 class CrearCitaAPIView(generics.CreateAPIView):
-    serializer_class = PrestacionServicioSerializer
+    queryset = Cita.objects.all()
+    serializer_class = CitaSerializer
     permission_classes = [EsCliente]
 
     def perform_create(self, serializer):
+        cita = serializer.save(usuario=self.request.user)
 
-        establecimiento = serializer.validated_data['establecimiento']
-        agenda = serializer.validated_data['agenda']
-        fecha = serializer.validated_data['fecha']
-
-        if not (establecimiento.hora_apertura <= agenda.hora <= establecimiento.hora_cierre):
-            raise ValidationError("Horario fuera del rango permitido.")
-
-        if PrestacionServicio.objects.filter(
-            establecimiento=establecimiento,
-            agenda=agenda,
-            fecha=fecha,
-            estado__in=['pendiente', 'confirmada']
-        ).exists():
-            raise ValidationError("Ese horario ya está reservado.")
-
-        cita = serializer.save(
-            usuario=self.request.user,
-            estado='pendiente'
-        )
-
+        # 🔥 Notificación
         Notificacion.objects.create(
             usuario=cita.establecimiento.propietario,
             titulo="Nueva cita",
-            mensaje=f"Tienes una nueva cita para el {cita.fecha}"
-        )
-        
-        
+            mensaje=f"Tienes una nueva cita para el {cita.fecha} a las {cita.hora}"
+        )        
 class EditarCitaAPIView(generics.UpdateAPIView):
     serializer_class = PrestacionServicioSerializer
     permission_classes = [IsAuthenticated]

@@ -7,6 +7,10 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.generics import CreateAPIView, ListAPIView, UpdateAPIView
 
+from datetime import datetime, timedelta, time
+
+
+
 
 from .models import (
     PrestacionServicio,
@@ -75,33 +79,45 @@ class CrearCitaView(CreateAPIView):
     
 
 
+
+
 @api_view(['GET'])
 def obtener_agendas(request, establecimiento_id):
 
-    fecha = request.GET.get('fecha')
+    fecha_str = request.GET.get("fecha")
 
-    agendas = Agenda.objects.filter(
-        establecimiento_id=establecimiento_id
-    )
+    if not fecha_str:
+        return Response({"error": "Fecha requerida"}, status=400)
 
-    ocupadas = PrestacionServicio.objects.filter(
-        establecimiento_id=establecimiento_id,
-        fecha=fecha,
-        estado__in=['pendiente', 'confirmada']
-    ).values_list('agenda_id', flat=True)
+    fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
 
-    disponibles = agendas.exclude(id__in=ocupadas)
+    # 🕒 HORARIO BASE (8am a 6pm cada hora)
+    hora_inicio = time(8, 0)
+    hora_fin = time(18, 0)
 
+    horas = []
+    actual = datetime.combine(fecha, hora_inicio)
+
+    while actual.time() <= hora_fin:
+        horas.append(actual.time())
+        actual += timedelta(hours=1)
+
+    # 🚫 HORAS OCUPADAS (citas ya creadas)
+    ocupadas = Agenda.objects.filter(fecha=fecha).values_list("hora", flat=True)
+
+    # ✅ DISPONIBLES
+    disponibles = [h for h in horas if h not in ocupadas]
+
+    # 🎯 RESPUESTA
     data = [
         {
-            "id": a.id,
-            "hora": a.hora.strftime("%H:%M")
+            "id": i + 1,
+            "hora": h.strftime("%H:%M")
         }
-        for a in disponibles
+        for i, h in enumerate(disponibles)
     ]
 
     return Response(data)
-
 
 
 class MisCitasView(ListAPIView):

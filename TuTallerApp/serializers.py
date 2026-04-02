@@ -156,6 +156,46 @@ class CitaSerializer(serializers.ModelSerializer):
         fields = ['establecimiento', 'servicio', 'fecha', 'hora', 'descripcion']
 
 
+
+class CitaSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Cita
+        fields = '__all__'
+        read_only_fields = ['usuario']  # 🔥 importante
+
+    def validate(self, data):
+        establecimiento = data['establecimiento']
+        servicio = data['servicio']
+        fecha = data['fecha']
+        hora = data['hora']
+
+        # 🔥 1. Validar relación servicio-establecimiento
+        if servicio.establecimiento.id != establecimiento.id:
+            raise serializers.ValidationError(
+                "El servicio no pertenece a este establecimiento"
+            )
+
+        # 🔥 2. Validar horario del establecimiento
+        if not (establecimiento.hora_apertura <= hora <= establecimiento.hora_cierre):
+            raise serializers.ValidationError(
+                "La hora está fuera del horario del establecimiento"
+            )
+
+        # 🔥 3. Validar cita duplicada
+        if Cita.objects.filter(
+            establecimiento=establecimiento,
+            fecha=fecha,
+            hora=hora
+        ).exists():
+            raise serializers.ValidationError(
+                "Ya existe una cita en ese horario"
+            )
+
+        return data
+    
+    
+    
 # =====================================
 # 📅 PRESTACIÓN (CITAS)
 # =====================================
