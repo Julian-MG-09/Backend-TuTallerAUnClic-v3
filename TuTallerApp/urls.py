@@ -8,7 +8,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .views import (UsuarioMeView,CrearCitaView, 
                     MisCitasView,EstablecimientosView, 
-                    ServiciosPorEstablecimiento,
+                    ServiciosPorEstablecimiento,horarios_disponibles,
                      CrearCalificacionView)
 from .views import obtener_agendas
 # AUTH
@@ -90,20 +90,26 @@ urlpatterns = [
     path('vehiculos/crear/', VehiculoCreateAPIView.as_view()),
 
     # 📅 CITAS
-    path('citas/', CrearCitaView.as_view()),
-    path('citas/mias/', MisCitasView.as_view()),
-    path('citas/crear/', CrearCitaAPIView.as_view()),
+     # ✅ CREAR CITA
+    path('citas/', CrearCitaAPIView.as_view()),
+
+    # ✅ MIS CITAS (cliente)
     path('citas/mis/', MisCitasAPIView.as_view()),
+
+    # ✅ CITAS EMPRESA
     path('citas/empresa/', CitasEmpresaAPIView.as_view()),
+
+    # ✅ CAMBIAR ESTADO
     path('citas/<int:pk>/estado/', CambiarEstadoCitaAPIView.as_view()),
-    # ✏️ editar cita
+
+    # ✏️ EDITAR
     path('citas/<int:pk>/editar/', EditarCitaAPIView.as_view()),
 
-    # 🗑 eliminar cita
+    # 🗑 ELIMINAR
     path('citas/<int:pk>/eliminar/', EliminarCitaAPIView.as_view()),
-    
-    path('agendas/<int:establecimiento_id>/', obtener_agendas),
 
+    # 📅 AGENDAS
+    path('agendas/<int:establecimiento_id>/', obtener_agendas),
 
     # ⭐ CALIFICACIONES
     path('calificaciones/', CrearCalificacionView.as_view()),
@@ -140,4 +146,8 @@ urlpatterns = [
 
     path('admin/notificaciones/', NotificacionListCreateView.as_view()),
     path('admin/notificaciones/<int:pk>/', NotificacionRetrieveUpdateDestroyView.as_view()),
+    
+    
+    # urls.py
+path('horarios-disponibles/', horarios_disponibles),
 ]

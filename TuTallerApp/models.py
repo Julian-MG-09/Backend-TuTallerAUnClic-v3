@@ -8,8 +8,8 @@ from django.conf import settings
 # ==============================
 
 class Rol(models.Model):
-    nombre = models.CharField(max_length=50)
-    descripcion = models.TextField()
+    nombre = models.CharField(max_length=50, unique=True)
+    descripcion = models.TextField(blank=True)
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
@@ -19,10 +19,16 @@ class Rol(models.Model):
 
 
 class Usuario(AbstractUser):
-    telefono  = models.CharField(max_length=20, blank=True)
-    rol       = models.ForeignKey('Rol', on_delete=models.SET_NULL, null=True, blank=True)
-    foto      = models.ImageField(upload_to='fotos_perfil/', null=True, blank=True)
+    telefono = models.CharField(max_length=20, blank=True)
 
+    rol = models.ForeignKey(
+        Rol,
+        on_delete=models.PROTECT,  # 🔥 NUNCA se borra accidentalmente
+        null=False,                # 🔥 obligatorio
+        blank=False
+    )
+
+    foto = models.ImageField(upload_to='fotos_perfil/', null=True, blank=True)
 
 # ==============================
 # 🏢 ESTABLECIMIENTOS

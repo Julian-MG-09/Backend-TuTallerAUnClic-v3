@@ -259,45 +259,38 @@ class MisVehiculosAPIView(generics.ListAPIView):
 class CrearCitaAPIView(generics.CreateAPIView):
     queryset = Cita.objects.all()
     serializer_class = CitaSerializer
-    permission_classes = [EsCliente]
+    permission_classes = [IsAuthenticated, EsCliente]
 
     def perform_create(self, serializer):
-        cita = serializer.save(usuario=self.request.user)
-
-        # 🔥 Notificación
-        Notificacion.objects.create(
-            usuario=cita.establecimiento.propietario,
-            titulo="Nueva cita",
-            mensaje=f"Tienes una nueva cita para el {cita.fecha} a las {cita.hora}"
-        )        
+        serializer.save(usuario=self.request.user)
+         
 class EditarCitaAPIView(generics.UpdateAPIView):
-    serializer_class = PrestacionServicioSerializer
+    queryset = Cita.objects.all()
+    serializer_class = CitaSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # 🔒 solo puede editar sus citas
-        return PrestacionServicio.objects.filter(usuario=self.request.user)
+        return Cita.objects.filter(usuario=self.request.user)
 
     def perform_update(self, serializer):
         cita = self.get_object()
 
-        # 🔒 no permitir editar si ya fue confirmada o finalizada
         if cita.estado != 'pendiente':
             raise ValidationError("Solo puedes editar citas pendientes.")
 
         establecimiento = serializer.validated_data.get('establecimiento', cita.establecimiento)
-        agenda = serializer.validated_data.get('agenda', cita.agenda)
         fecha = serializer.validated_data.get('fecha', cita.fecha)
+        hora = serializer.validated_data.get('hora', cita.hora)
 
-        # 🔥 validaciones
-        if not (establecimiento.hora_apertura <= agenda.hora <= establecimiento.hora_cierre):
+        # 🔥 validar horario
+        if not (establecimiento.hora_apertura <= hora <= establecimiento.hora_cierre):
             raise ValidationError("Horario fuera del rango permitido.")
 
-        if PrestacionServicio.objects.filter(
+        # 🔥 validar duplicado
+        if Cita.objects.filter(
             establecimiento=establecimiento,
-            agenda=agenda,
             fecha=fecha,
-            estado__in=['pendiente', 'confirmada']
+            hora=hora
         ).exclude(pk=cita.pk).exists():
             raise ValidationError("Ese horario ya está reservado.")
 
@@ -305,30 +298,27 @@ class EditarCitaAPIView(generics.UpdateAPIView):
 
 
 class MisCitasAPIView(generics.ListAPIView):
-    serializer_class = PrestacionServicioSerializer
+    serializer_class = CitaSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return PrestacionServicio.objects.filter(usuario=self.request.user)
-
+        return Cita.objects.filter(usuario=self.request.user)
 
 class DetalleMiCitaAPIView(generics.RetrieveAPIView):
-    serializer_class = PrestacionServicioSerializer
+    serializer_class = CitaSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return PrestacionServicio.objects.filter(usuario=self.request.user)
-
+        return Cita.objects.filter(usuario=self.request.user)
 
 class CitasEmpresaAPIView(generics.ListAPIView):
-    serializer_class = PrestacionServicioSerializer
+    serializer_class = CitaSerializer
     permission_classes = [EsEmpresa]
 
     def get_queryset(self):
-        return PrestacionServicio.objects.filter(
+        return Cita.objects.filter(
             establecimiento__propietario=self.request.user
         )
-
 
 class CambiarEstadoCitaAPIView(APIView):
     permission_classes = [EsEmpresa]
@@ -336,7 +326,7 @@ class CambiarEstadoCitaAPIView(APIView):
     def patch(self, request, pk):
 
         cita = get_object_or_404(
-            PrestacionServicio,
+            Cita,
             pk=pk,
             establecimiento__propietario=request.user
         )
@@ -344,7 +334,7 @@ class CambiarEstadoCitaAPIView(APIView):
         nuevo_estado = request.data.get("estado")
 
         estados_validos = [
-            e[0] for e in PrestacionServicio._meta.get_field('estado').choices
+            e[0] for e in Cita._meta.get_field('estado').choices
         ]
 
         if nuevo_estado not in estados_validos:
@@ -352,7 +342,6 @@ class CambiarEstadoCitaAPIView(APIView):
 
         cita.estado = nuevo_estado
 
-        # 🔥 si finaliza → guardar fecha
         if nuevo_estado == 'finalizada':
             cita.fecha_finalizacion = timezone.now()
 
@@ -364,26 +353,44 @@ class CambiarEstadoCitaAPIView(APIView):
             mensaje=f"Tu cita fue {cita.estado}"
         )
 
-        return Response({"mensaje": "Estado actualizado correctamente"})
+        return Response({"mensaje": "Estado actualizado correctamente"})    
+ 
+ 
+ 
+from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError, NotFound
+from .models import Cita   
     
 class EliminarCitaAPIView(generics.DestroyAPIView):
-    serializer_class = PrestacionServicioSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # 🔒 solo sus citas
-        return PrestacionServicio.objects.filter(usuario=self.request.user)
+        # 🔐 Seguridad: solo citas del usuario
+        return Cita.objects.filter(usuario=self.request.user)
 
     def perform_destroy(self, instance):
-        # 🔒 no eliminar si ya fue confirmada o finalizada
         if instance.estado != 'pendiente':
             raise ValidationError("No puedes eliminar esta cita.")
+        instance.delete()
 
-        instance.delete()   
-    
-    
-
-
+    # 🔥 Opcional PRO: mensajes más claros
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()  # aquí ya filtra por usuario
+            self.perform_destroy(instance)
+            return Response(
+                {"mensaje": "Cita eliminada correctamente"},
+                status=status.HTTP_200_OK
+            )
+        except Cita.DoesNotExist:
+            raise NotFound("La cita no existe o no te pertenece")
+        except ValidationError as e:
+            return Response(
+                {"error": str(e.detail[0])},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 # =====================================
 # 💬 COMENTARIO EMPRESA

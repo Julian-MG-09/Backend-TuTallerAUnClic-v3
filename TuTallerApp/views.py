@@ -6,11 +6,8 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.generics import CreateAPIView, ListAPIView, UpdateAPIView
-
+from rest_framework.decorators import api_view, permission_classes
 from datetime import datetime, timedelta, time
-
-
-
 
 from .models import (
     PrestacionServicio,
@@ -118,6 +115,44 @@ def obtener_agendas(request, establecimiento_id):
     ]
 
     return Response(data)
+
+
+
+# views.py
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def horarios_disponibles(request):
+    establecimiento_id = request.GET.get('establecimiento')
+    fecha = request.GET.get('fecha')
+
+    establecimiento = Establecimiento.objects.get(id=establecimiento_id)
+
+    # 🔥 Generar horas dinámicamente
+    hora_inicio = establecimiento.hora_apertura
+    hora_fin = establecimiento.hora_cierre
+
+    horas = []
+    actual = datetime.combine(datetime.today(), hora_inicio)
+    fin = datetime.combine(datetime.today(), hora_fin)
+
+    while actual <= fin:
+        horas.append(actual.strftime("%H:%M"))
+        actual += timedelta(hours=1)
+
+    # 🔥 Obtener citas ocupadas
+    ocupadas = Cita.objects.filter(
+        establecimiento_id=establecimiento_id,
+        fecha=fecha
+    ).values_list('hora', flat=True)
+
+    ocupadas = [h.strftime("%H:%M") for h in ocupadas]
+
+    # 🔥 Filtrar disponibles
+    disponibles = [h for h in horas if h not in ocupadas]
+
+    return Response(disponibles)
 
 
 class MisCitasView(ListAPIView):

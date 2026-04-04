@@ -16,52 +16,95 @@ from .models import (
 )
 
 
+
 # =====================================
-# 🧩 ROLES
+# 🔐 ROL
 # =====================================
 
 class RolSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rol
-        fields = ['id', 'nombre', 'descripcion', 'activo']
+        fields = ['id', 'nombre', 'descripcion']
 
 
 # =====================================
-# 👤 USUARIO
+# 👤 USUARIO (PRO SEGURO)
 # =====================================
 
 class UsuarioSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=False)
+    password = serializers.CharField(write_only=True, required=True)
     foto_url = serializers.SerializerMethodField()
     rol_nombre = serializers.CharField(source='rol.nombre', read_only=True)
 
     class Meta:
         model = Usuario
         fields = [
-            'id', 'username', 'first_name', 'last_name',
-            'email', 'telefono',
-            'rol', 'rol_nombre',
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'telefono',
+            'rol_nombre',   # 🔥 solo lectura
             'password',
-            'foto', 'foto_url'
+            'foto',
+            'foto_url'
         ]
+
+    # =====================================
+    # 📸 FOTO URL COMPLETA
+    # =====================================
 
     def get_foto_url(self, obj):
         request = self.context.get('request')
+
         if obj.foto and request:
             return request.build_absolute_uri(obj.foto.url)
+
         return obj.foto.url if obj.foto else None
 
+    # =====================================
+    # 🔍 VALIDACIONES
+    # =====================================
+
+    def validate_username(self, value):
+        if Usuario.objects.filter(username=value).exists():
+            raise serializers.ValidationError("El usuario ya existe")
+        return value
+
+    def validate_email(self, value):
+        if Usuario.objects.filter(email=value).exists():
+            raise serializers.ValidationError("El email ya está registrado")
+        return value
+
+    # =====================================
+    # 🆕 CREATE (ROL AUTOMÁTICO)
+    # =====================================
+
     def create(self, validated_data):
-        password = validated_data.pop('password', None)
+        password = validated_data.pop('password')
+
+        # 🔥 asignar rol cliente automáticamente
+        try:
+            rol_cliente = Rol.objects.get(nombre="cliente")
+        except Rol.DoesNotExist:
+            raise serializers.ValidationError("El rol cliente no existe")
+
         user = Usuario(**validated_data)
-
-        if password:
-            user.set_password(password)
-
+        user.rol = rol_cliente
+        user.set_password(password)
         user.save()
+
         return user
 
+    # =====================================
+    # ✏️ UPDATE (SEGURO)
+    # =====================================
+
     def update(self, instance, validated_data):
+        # 🔒 evitar cambio de rol desde API
+        validated_data.pop('rol', None)
+
         password = validated_data.pop('password', None)
 
         for attr, value in validated_data.items():
@@ -72,7 +115,6 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
-
 
 # =====================================
 # 🚗 VEHÍCULOS
