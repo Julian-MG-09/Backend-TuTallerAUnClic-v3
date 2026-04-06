@@ -6,6 +6,17 @@ from rest_framework.exceptions import ValidationError
 from django.db.models import Avg, Count
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from rest_framework import generics, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError, NotFound
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
+from .models import Cita, Establecimiento
+from .serializers import CitaSerializer
+
 
 
 
@@ -254,20 +265,72 @@ class MisVehiculosAPIView(generics.ListAPIView):
 # 📅 CITAS
 # =====================================
 
+class HorariosDisponiblesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        establecimiento_id = request.GET.get("establecimiento")
+        fecha = request.GET.get("fecha")
+
+        if not establecimiento_id or not fecha:
+            return Response(
+                {"error": "Parámetros requeridos"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        establecimiento = get_object_or_404(Establecimiento, id=establecimiento_id)
+
+        citas = Cita.objects.filter(
+            establecimiento_id=establecimiento_id,
+            fecha=fecha
+        )
+
+        horas_ocupadas = [c.hora.strftime("%H:%M:%S") for c in citas]
+
+        inicio = establecimiento.hora_apertura.hour
+        fin = establecimiento.hora_cierre.hour
+
+        todas = [f"{h:02d}:00:00" for h in range(inicio, fin)]
+
+        disponibles = [h for h in todas if h not in horas_ocupadas]
+
+        return Response({
+            "disponibles": disponibles,
+            "ocupadas": horas_ocupadas,
+            "completo": len(disponibles) == 0
+        })
+        
+        
 
 
 class CrearCitaAPIView(generics.CreateAPIView):
-    queryset = Cita.objects.all()
     serializer_class = CitaSerializer
-    permission_classes = [IsAuthenticated, EsCliente]
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
-         
-class EditarCitaAPIView(generics.UpdateAPIView):
-    queryset = Cita.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        print("DATA RECIBIDA:", request.data)
+
+        serializer = self.get_serializer(data=request.data)
+
+        if not serializer.is_valid():
+            print("ERRORES:", serializer.errors)  # 🔥 CLAVE
+            return Response(serializer.errors, status=400)
+
+        self.perform_create(serializer)
+        return Response(serializer.data, status=201)
+        
+        
+class DetalleMiCitaAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = CitaSerializer
     permission_classes = [IsAuthenticated]
+    
+    
+    def update(self, request, *args, **kwargs):
+        print(request.data)  # 👈 clave
+        return super().update(request, *args, **kwargs)
 
     def get_queryset(self):
         return Cita.objects.filter(usuario=self.request.user)
@@ -276,41 +339,22 @@ class EditarCitaAPIView(generics.UpdateAPIView):
         cita = self.get_object()
 
         if cita.estado != 'pendiente':
-            raise ValidationError("Solo puedes editar citas pendientes.")
-
-        establecimiento = serializer.validated_data.get('establecimiento', cita.establecimiento)
-        fecha = serializer.validated_data.get('fecha', cita.fecha)
-        hora = serializer.validated_data.get('hora', cita.hora)
-
-        # 🔥 validar horario
-        if not (establecimiento.hora_apertura <= hora <= establecimiento.hora_cierre):
-            raise ValidationError("Horario fuera del rango permitido.")
-
-        # 🔥 validar duplicado
-        if Cita.objects.filter(
-            establecimiento=establecimiento,
-            fecha=fecha,
-            hora=hora
-        ).exclude(pk=cita.pk).exists():
-            raise ValidationError("Ese horario ya está reservado.")
+            raise ValidationError("Solo puedes editar citas pendientes")
 
         serializer.save()
+        
+        
 
-
+        
 class MisCitasAPIView(generics.ListAPIView):
     serializer_class = CitaSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Cita.objects.filter(usuario=self.request.user)
-
-class DetalleMiCitaAPIView(generics.RetrieveAPIView):
-    serializer_class = CitaSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Cita.objects.filter(usuario=self.request.user)
-
+    
+    
+    
 class CitasEmpresaAPIView(generics.ListAPIView):
     serializer_class = CitaSerializer
     permission_classes = [EsEmpresa]
@@ -318,7 +362,7 @@ class CitasEmpresaAPIView(generics.ListAPIView):
     def get_queryset(self):
         return Cita.objects.filter(
             establecimiento__propietario=self.request.user
-        )
+        )      
 
 class CambiarEstadoCitaAPIView(APIView):
     permission_classes = [EsEmpresa]
@@ -333,12 +377,10 @@ class CambiarEstadoCitaAPIView(APIView):
 
         nuevo_estado = request.data.get("estado")
 
-        estados_validos = [
-            e[0] for e in Cita._meta.get_field('estado').choices
-        ]
+        estados_validos = [e[0] for e in Cita._meta.get_field('estado').choices]
 
         if nuevo_estado not in estados_validos:
-            raise ValidationError("Estado inválido.")
+            raise ValidationError("Estado inválido")
 
         cita.estado = nuevo_estado
 
@@ -347,51 +389,44 @@ class CambiarEstadoCitaAPIView(APIView):
 
         cita.save()
 
-        Notificacion.objects.create(
-            usuario=cita.usuario,
-            titulo="Estado actualizado",
-            mensaje=f"Tu cita fue {cita.estado}"
-        )
+        return Response({
+            "mensaje": "Estado actualizado correctamente"
+        })
 
-        return Response({"mensaje": "Estado actualizado correctamente"})    
- 
- 
- 
-from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError, NotFound
-from .models import Cita   
-    
+
 class EliminarCitaAPIView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # 🔐 Seguridad: solo citas del usuario
         return Cita.objects.filter(usuario=self.request.user)
 
     def perform_destroy(self, instance):
         if instance.estado != 'pendiente':
-            raise ValidationError("No puedes eliminar esta cita.")
+            raise ValidationError("No puedes eliminar esta cita")
+
         instance.delete()
 
-    # 🔥 Opcional PRO: mensajes más claros
     def destroy(self, request, *args, **kwargs):
         try:
-            instance = self.get_object()  # aquí ya filtra por usuario
+            instance = self.get_object()
             self.perform_destroy(instance)
+
             return Response(
                 {"mensaje": "Cita eliminada correctamente"},
                 status=status.HTTP_200_OK
             )
-        except Cita.DoesNotExist:
-            raise NotFound("La cita no existe o no te pertenece")
+
         except ValidationError as e:
             return Response(
                 {"error": str(e.detail[0])},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        except Exception:
+            return Response(
+                {"error": "Error interno del servidor"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 # =====================================
 # 💬 COMENTARIO EMPRESA
 # =====================================

@@ -37,8 +37,10 @@ from .api import (
     CrearCalificacionAPIView,
     CalificacionesEstablecimientoAPIView,
     DashboardEmpresaAPIView,
-    MisNotificacionesAPIView, EditarCitaAPIView,
-    MarcarLeidaAPIView,EliminarCitaAPIView,TopEstablecimientosAPIView
+    MisNotificacionesAPIView, 
+    MarcarLeidaAPIView,EliminarCitaAPIView,TopEstablecimientosAPIView,
+    HorariosDisponiblesAPIView,
+    DetalleMiCitaAPIView
 )
 from .admin_api import (
     UsuarioListCreateView,
@@ -52,7 +54,8 @@ from .admin_api import (
     CalificacionListCreateView,
     CalificacionRetrieveUpdateDestroyView,
     NotificacionListCreateView,
-    NotificacionRetrieveUpdateDestroyView
+    NotificacionRetrieveUpdateDestroyView,
+    
 )
 
 urlpatterns = [
@@ -89,25 +92,24 @@ urlpatterns = [
     path('vehiculos/', MisVehiculosAPIView.as_view()),
     path('vehiculos/crear/', VehiculoCreateAPIView.as_view()),
 
-    # 📅 CITAS
-     # ✅ CREAR CITA
-    path('citas/', CrearCitaAPIView.as_view()),
+    # 📅 CITAS (CLIENTE)
+    path('citas/', MisCitasAPIView.as_view()),               # GET
+    path('citas/crear/', CrearCitaAPIView.as_view()),        # POST
 
-    # ✅ MIS CITAS (cliente)
-    path('citas/mis/', MisCitasAPIView.as_view()),
-
-    # ✅ CITAS EMPRESA
-    path('citas/empresa/', CitasEmpresaAPIView.as_view()),
-
-    # ✅ CAMBIAR ESTADO
-    path('citas/<int:pk>/estado/', CambiarEstadoCitaAPIView.as_view()),
-
-    # ✏️ EDITAR
-    path('citas/<int:pk>/editar/', EditarCitaAPIView.as_view()),
+    # 🔍 DETALLE / EDITAR
+    path('citas/<int:pk>/', DetalleMiCitaAPIView.as_view()), # GET / PUT / PATCH
 
     # 🗑 ELIMINAR
     path('citas/<int:pk>/eliminar/', EliminarCitaAPIView.as_view()),
 
+    # 📊 DISPONIBILIDAD
+    path('citas/disponibilidad/', HorariosDisponiblesAPIView.as_view()),
+
+    # 🏢 EMPRESA
+    path('empresa/citas/', CitasEmpresaAPIView.as_view()),
+
+    # 🔄 CAMBIAR ESTADO
+    path('citas/<int:pk>/estado/', CambiarEstadoCitaAPIView.as_view()),
     # 📅 AGENDAS
     path('agendas/<int:establecimiento_id>/', obtener_agendas),
 

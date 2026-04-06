@@ -189,54 +189,59 @@ class AgendaSerializer(serializers.ModelSerializer):
         fields = '__all__'
         
         
+
+
+
 from rest_framework import serializers
 from .models import Cita
-
-class CitaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Cita
-        fields = ['establecimiento', 'servicio', 'fecha', 'hora', 'descripcion']
-
-
 
 class CitaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cita
         fields = '__all__'
-        read_only_fields = ['usuario']  # 🔥 importante
+        read_only_fields = ['usuario']  # 🔥 IMPORTANTE
 
     def validate(self, data):
-        establecimiento = data['establecimiento']
-        servicio = data['servicio']
-        fecha = data['fecha']
-        hora = data['hora']
+        instance = getattr(self, 'instance', None)
 
-        # 🔥 1. Validar relación servicio-establecimiento
-        if servicio.establecimiento.id != establecimiento.id:
-            raise serializers.ValidationError(
-                "El servicio no pertenece a este establecimiento"
-            )
+        # ✅ Tomar datos nuevos o existentes (clave para PATCH)
+        establecimiento = data.get('establecimiento') or getattr(instance, 'establecimiento', None)
+        fecha = data.get('fecha') or getattr(instance, 'fecha', None)
+        hora = data.get('hora') or getattr(instance, 'hora', None)
 
-        # 🔥 2. Validar horario del establecimiento
-        if not (establecimiento.hora_apertura <= hora <= establecimiento.hora_cierre):
-            raise serializers.ValidationError(
-                "La hora está fuera del horario del establecimiento"
-            )
+        # 🚫 Validar que haya datos suficientes
+        if not establecimiento or not fecha or not hora:
+            raise serializers.ValidationError("Datos incompletos para validar la cita.")
 
-        # 🔥 3. Validar cita duplicada
-        if Cita.objects.filter(
+        # 🚫 Evitar citas duplicadas (mismo lugar, fecha y hora)
+        query = Cita.objects.filter(
             establecimiento=establecimiento,
             fecha=fecha,
             hora=hora
-        ).exists():
-            raise serializers.ValidationError(
-                "Ya existe una cita en ese horario"
-            )
+        )
+
+        # 🔥 Excluir la misma cita si es update
+        if instance:
+            query = query.exclude(id=instance.id)
+
+        if query.exists():
+            raise serializers.ValidationError("Este horario ya está ocupado.")
 
         return data
-    
-    
+
+    def create(self, validated_data):
+        # 🔥 Asignar automáticamente el usuario autenticado
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['usuario'] = request.user
+
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # ✅ Update limpio y seguro
+        return super().update(instance, validated_data)
+
     
 # =====================================
 # 📅 PRESTACIÓN (CITAS)

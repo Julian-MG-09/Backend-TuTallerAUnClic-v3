@@ -115,6 +115,15 @@ class Cita(models.Model):
     fecha = models.DateField()
     hora = models.TimeField()
     descripcion = models.TextField(blank=True, null=True)
+    estado = models.CharField(
+    max_length=20,
+    choices=[
+        ('pendiente', 'Pendiente'),
+        ('confirmada', 'Confirmada'),
+        ('cancelada', 'Cancelada'),
+    ],
+    default='pendiente'
+    )
 
     def __str__(self):
         return f"{self.usuario} - {self.fecha} {self.hora}"
