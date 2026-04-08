@@ -25,3 +25,16 @@ Dar permisos:
 
 GRANT ALL PRIVILEGES ON tutalleraunclic.* TO 'tutalleraunclic_user'@'localhost';
 FLUSH PRIVILEGES;
+
+## Producción
+
+1. Copiar `.env.example` a `.env`
+2. Configurar `SECRET_KEY`, `ALLOWED_HOSTS`, base de datos, CORS y CSRF
+3. Ejecutar:
+   `python manage.py check --deploy`
+4. Recolectar estáticos:
+   `python manage.py collectstatic --noinput`
+5. Aplicar migraciones:
+   `python manage.py migrate`
+6. Levantar con Gunicorn:
+   `gunicorn TuTallerAUnClicBackend.wsgi:application`

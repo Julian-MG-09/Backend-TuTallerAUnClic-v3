@@ -1,20 +1,47 @@
 """
 Django settings for TuTallerAUnClic project.
 """
-from pathlib import Path
 import os
-from datetime import timedelta   
+from datetime import timedelta
+from pathlib import Path
+
+from corsheaders.defaults import default_headers
 from decouple import Config, RepositoryEnv
+
+
+
+
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Forzar lectura del .env desde la raíz
 config = Config(RepositoryEnv(os.path.join(BASE_DIR, '.env')))
 
-SECRET_KEY = 'django-insecure-9xKfP3aL8zQwR2vT6mN4yH7uB1cD5eF8gJ0kLpXs'
-DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['*']
+def env_bool(name, default=False):
+    value = config(name, default=None)
+    if value is None:
+        return default
+    value = str(value).strip().lower()
+    if value in {'1', 'true', 'yes', 'on'}:
+        return True
+    if value in {'0', 'false', 'no', 'off', '', 'release', 'prod', 'production'}:
+        return False
+    return default
+
+
+def env_list(name, default=''):
+    raw = config(name, default=default)
+    return [item.strip() for item in str(raw).split(',') if item.strip()]
+
+
+DEBUG = env_bool('DEBUG', default=False)
+SECRET_KEY = config('SECRET_KEY', default='dev-insecure-key-only-for-local')
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', default='127.0.0.1,localhost')
+
+if not DEBUG and SECRET_KEY == 'dev-insecure-key-only-for-local':
+    raise ValueError('Define SECRET_KEY en el archivo .env para producción.')
 
 # ======================================================
 # APLICACIONES
@@ -45,6 +72,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -84,12 +112,13 @@ WSGI_APPLICATION = 'TuTallerAUnClicBackend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'tutalleraunclic',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.mysql'),
+        'NAME': config('DB_NAME', default='tutalleraunclic'),
+        'USER': config('DB_USER', default='root'),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default='127.0.0.1'),
+        'PORT': config('DB_PORT', default='3306'),
+        'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
     }
 }
 
@@ -129,6 +158,8 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'TuTallerApp' / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL  = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -155,8 +186,12 @@ REST_FRAMEWORK = {
 # ======================================================
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(
+        minutes=config('JWT_ACCESS_MINUTES', default=30, cast=int)
+    ),
+    'REFRESH_TOKEN_LIFETIME': timedelta(
+        days=config('JWT_REFRESH_DAYS', default=7, cast=int)
+    ),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
@@ -178,9 +213,36 @@ DEFAULT_FROM_EMAIL = f"Tu Taller a un Clic <{EMAIL_HOST_USER}>"
 # CORS
 # ======================================================
 
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL', default=True, cast=bool)
+CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', default=DEBUG)
+CORS_ALLOWED_ORIGINS = env_list(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:5173'
+)
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', default='')
 
-# En producción usa:
-# CORS_ALLOWED_ORIGINS = [
-#     "https://tudominio.com",
-# ]
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'ngrok-skip-browser-warning',
+]
+
+# ======================================================
+# SEGURIDAD PRODUCCION
+# ======================================================
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', default=not DEBUG)
+SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', default=not DEBUG)
+CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', default=not DEBUG)
+SECURE_HSTS_SECONDS = config(
+    'SECURE_HSTS_SECONDS',
+    default=31536000 if not DEBUG else 0,
+    cast=int,
+)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    'SECURE_HSTS_INCLUDE_SUBDOMAINS',
+    default=not DEBUG,
+)
+SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', default=not DEBUG)
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+USE_X_FORWARDED_HOST = env_bool('USE_X_FORWARDED_HOST', default=True)

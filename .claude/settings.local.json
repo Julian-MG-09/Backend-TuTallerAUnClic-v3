@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(venv/Scripts/pip show:*)",
+      "Bash(venv/Scripts/python manage.py runserver)",
+      "Bash(xargs grep:*)",
+      "Bash(venv/Scripts/python manage.py check)",
+      "Bash(venv/Scripts/python manage.py show_urls)",
+      "Bash(venv/Scripts/python manage.py migrate --check)",
+      "Bash(venv/Scripts/python manage.py showmigrations --list)",
+      "Bash(venv/Scripts/python manage.py runserver 8000)",
+      "Bash(venv/Scripts/pip install:*)",
+      "Bash(curl:*)",
+      "Bash(venv/Scripts/python -c \"from django.core.management.utils import get_random_secret_key; print\\(get_random_secret_key\\(\\)\\)\")",
+      "Bash(python -m json.tool)",
+      "Bash(venv/Scripts/python manage.py shell -c \"from TuTallerApp.models import Usuario; u = Usuario.objects.get\\(username='3116411832'\\); u.set_password\\('maxi0912'\\); u.save\\(\\); print\\('OK'\\)\")",
+      "Bash(venv/Scripts/python manage.py shell -c \"from TuTallerApp.models import Usuario; users = Usuario.objects.filter\\(username__icontains='3116411832'\\); print\\([\\(u.id, u.username, u.email\\) for u in users]\\)\")",
+      "Bash(venv/Scripts/python manage.py shell -c \"from TuTallerApp.models import Usuario; users = Usuario.objects.all\\(\\).values\\('id','username','email'\\); [print\\(u\\) for u in users]\")",
+      "Bash(venv/Scripts/python manage.py shell -c 'from TuTallerApp.models import Usuario:*)",
+      "Bash(venv/Scripts/python manage.py shell -c ':*)"
+    ]
+  }
+}

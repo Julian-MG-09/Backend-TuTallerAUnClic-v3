@@ -30,6 +30,8 @@ def login(request):
 
     return Response({
         "token": str(refresh.access_token),
+        
+        
         "usuario": UsuarioSerializer(user).data
     })
 
@@ -106,6 +108,7 @@ class RefreshTokenAPIView(TokenRefreshView):
 
 class PerfilAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request):
         serializer = UsuarioSerializer(
@@ -113,6 +116,24 @@ class PerfilAPIView(APIView):
             context={'request': request}
         )
         return Response(serializer.data)
+
+    def put(self, request):
+        return self._actualizar(request)
+
+    def patch(self, request):
+        return self._actualizar(request)
+
+    def _actualizar(self, request):
+        serializer = UsuarioSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # =====================================
@@ -123,13 +144,13 @@ class ActualizarPerfilAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    def put(self, request):
+    def _actualizar(self, request, partial):
         user = request.user
 
         serializer = UsuarioSerializer(
             user,
             data=request.data,
-            partial=True,
+            partial=partial,
             context={'request': request}
         )
 
@@ -138,6 +159,12 @@ class ActualizarPerfilAPIView(APIView):
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request):
+        return self._actualizar(request, partial=True)
+
+    def patch(self, request):
+        return self._actualizar(request, partial=True)
 
 
 # =====================================

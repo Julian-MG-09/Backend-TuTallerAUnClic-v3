@@ -3,17 +3,11 @@
 from django.urls import path
 
 
-
-from rest_framework_simplejwt.views import TokenObtainPairView
-
-from .views import (UsuarioMeView,CrearCitaView, 
-                    MisCitasView,EstablecimientosView, 
-                    ServiciosPorEstablecimiento,horarios_disponibles,
-                     CrearCalificacionView)
+from .views import horarios_disponibles
 from .views import obtener_agendas
 # AUTH
 from .auth_api import (
-    RegistroAPIView,login, register,
+    RegistroAPIView,
     LoginAPIView,
     RefreshTokenAPIView,
     PerfilAPIView,
@@ -37,10 +31,14 @@ from .api import (
     CrearCalificacionAPIView,
     CalificacionesEstablecimientoAPIView,
     DashboardEmpresaAPIView,
-    MisNotificacionesAPIView, 
+    MisNotificacionesAPIView,
     MarcarLeidaAPIView,EliminarCitaAPIView,TopEstablecimientosAPIView,
     HorariosDisponiblesAPIView,
-    DetalleMiCitaAPIView
+    DetalleMiCitaAPIView,
+    RolesPublicosAPIView,
+    CrearResenaAPIView,
+    MisResenasAPIView,
+    AnunciosAPIView,
 )
 from .admin_api import (
     UsuarioListCreateView,
@@ -60,13 +58,16 @@ from .admin_api import (
 
 urlpatterns = [
     
-    path('login/', login),
-    path('register/', register),
-   
-    
+    # 🧩 ROLES
+    path('roles/', RolesPublicosAPIView.as_view()),
+
+    # 📢 ANUNCIOS
+    path('anuncios/', AnunciosAPIView.as_view()),
+
     # 🔐 AUTH
     path('auth/register/', RegistroAPIView.as_view()),
-    path('auth/login/', TokenObtainPairView.as_view()),
+    path('usuarios/register/', RegistroAPIView.as_view()),
+    path('auth/login/', LoginAPIView.as_view()),
     path('auth/refresh/', RefreshTokenAPIView.as_view()),
     path('auth/logout/', LogoutAPIView.as_view()),
     path('auth/perfil/', PerfilAPIView.as_view()),
@@ -75,9 +76,6 @@ urlpatterns = [
     path('auth/eliminar/', EliminarCuentaAPIView.as_view()),
 
     # 🏢 ESTABLECIMIENTOS
-    path('establecimientos/', EstablecimientosView.as_view()),
-    path('establecimientos/<int:id>/servicios/', ServiciosPorEstablecimiento.as_view()),
-    
     path('establecimientos/', EstablecimientoListAPIView.as_view()),
     path('establecimientos/<int:pk>/', EstablecimientoDetailAPIView.as_view()),
     path('establecimientos/crear/', EstablecimientoCreateAPIView.as_view()),
@@ -114,10 +112,10 @@ urlpatterns = [
     path('agendas/<int:establecimiento_id>/', obtener_agendas),
 
     # ⭐ CALIFICACIONES
-    path('calificaciones/', CrearCalificacionView.as_view()),
-    
     path('calificaciones/crear/', CrearCalificacionAPIView.as_view()),
     path('calificaciones/establecimiento/<int:establecimiento_id>/', CalificacionesEstablecimientoAPIView.as_view()),
+    path('resenas/crear/', CrearResenaAPIView.as_view()),
+    path('resenas/mis/', MisResenasAPIView.as_view()),
 
     # 📊 DASHBOARD
     path('dashboard/empresa/', DashboardEmpresaAPIView.as_view()),
@@ -148,8 +146,5 @@ urlpatterns = [
 
     path('admin/notificaciones/', NotificacionListCreateView.as_view()),
     path('admin/notificaciones/<int:pk>/', NotificacionRetrieveUpdateDestroyView.as_view()),
-    
-    
-    # urls.py
-path('horarios-disponibles/', horarios_disponibles),
+    path('horarios-disponibles/', horarios_disponibles),
 ]

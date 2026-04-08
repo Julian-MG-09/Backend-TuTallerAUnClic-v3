@@ -1,34 +1,34 @@
-from rest_framework import generics
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError
-from django.db.models import Avg, Count
+import math
+
+from django.db.models import Avg, Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+
+
+def calcular_distancia(lat1, lon1, lat2, lon2):
+    """Distancia en km entre dos puntos GPS usando la fórmula de Haversine."""
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return R * 2 * math.asin(math.sqrt(a))
 from rest_framework import generics, status
-from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import ValidationError, NotFound
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
-
-from .models import Cita, Establecimiento
-from .serializers import CitaSerializer
-
-
-
-
+from rest_framework.views import APIView
 
 from .models import (
-    Usuario,
-    Establecimiento,Cita,
+    Cita,
+    Establecimiento,
     Servicio,
     Vehiculo,
     PrestacionServicio,
     Calificacion,
-    Notificacion
+    Notificacion,
+    Resena,
+    Rol,
+    Anuncio,
 )
 
 from .serializers import (CitaSerializer,
@@ -38,7 +38,10 @@ from .serializers import (CitaSerializer,
     VehiculoSerializer,
     PrestacionServicioSerializer,
     CalificacionSerializer,
-    NotificacionSerializer
+    NotificacionSerializer,
+    ResenaSerializer,
+    RolSerializer,
+    AnuncioSerializer,
 )
 
 from .permissions import EsCliente, EsEmpresa
@@ -308,15 +311,31 @@ class CrearCitaAPIView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(usuario=self.request.user)
+        cita = serializer.save(usuario=self.request.user)
+
+        Notificacion.objects.create(
+            usuario=self.request.user,
+            titulo="Cita creada",
+            mensaje=(
+                f"Tu cita en {cita.establecimiento.nombre} fue agendada "
+                f"para el {cita.fecha} a las {cita.hora}."
+            ),
+        )
+
+        if cita.establecimiento.propietario_id != self.request.user.id:
+            Notificacion.objects.create(
+                usuario=cita.establecimiento.propietario,
+                titulo="Nueva cita agendada",
+                mensaje=(
+                    f"{self.request.user.username} agendo una cita para "
+                    f"{cita.fecha} a las {cita.hora}."
+                ),
+            )
 
     def create(self, request, *args, **kwargs):
-        print("DATA RECIBIDA:", request.data)
-
         serializer = self.get_serializer(data=request.data)
 
         if not serializer.is_valid():
-            print("ERRORES:", serializer.errors)  # 🔥 CLAVE
             return Response(serializer.errors, status=400)
 
         self.perform_create(serializer)
@@ -328,10 +347,6 @@ class DetalleMiCitaAPIView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     
     
-    def update(self, request, *args, **kwargs):
-        print(request.data)  # 👈 clave
-        return super().update(request, *args, **kwargs)
-
     def get_queryset(self):
         return Cita.objects.filter(usuario=self.request.user)
 
@@ -388,6 +403,15 @@ class CambiarEstadoCitaAPIView(APIView):
             cita.fecha_finalizacion = timezone.now()
 
         cita.save()
+
+        Notificacion.objects.create(
+            usuario=cita.usuario,
+            titulo="Estado de cita actualizado",
+            mensaje=(
+                f"Tu cita en {cita.establecimiento.nombre} ahora esta "
+                f"'{cita.estado}'."
+            ),
+        )
 
         return Response({
             "mensaje": "Estado actualizado correctamente"
@@ -504,6 +528,40 @@ class CalificacionesEstablecimientoAPIView(generics.ListAPIView):
 
 
 # =====================================
+# RESEÑAS
+# =====================================
+
+class CrearResenaAPIView(generics.CreateAPIView):
+    serializer_class = ResenaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        cita = serializer.validated_data['cita']
+
+        if cita.usuario_id != self.request.user.id:
+            raise ValidationError("No puedes reseñar una cita de otro usuario.")
+
+        serializer.save(
+            usuario=self.request.user,
+            establecimiento=cita.establecimiento,
+        )
+
+        Notificacion.objects.create(
+            usuario=self.request.user,
+            titulo="Reseña enviada",
+            mensaje=f"Tu reseña para {cita.establecimiento.nombre} fue registrada correctamente.",
+        )
+
+
+class MisResenasAPIView(generics.ListAPIView):
+    serializer_class = ResenaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Resena.objects.filter(usuario=self.request.user).order_by('-created_at')
+
+
+# =====================================
 # 🔔 NOTIFICACIONES
 # =====================================
 
@@ -562,3 +620,33 @@ class DashboardEmpresaAPIView(APIView):
             "pendientes": pendientes,
             "finalizadas": finalizadas
         })
+
+
+# =====================================
+# 🧩 ROLES (público, solo lectura)
+# =====================================
+
+class RolesPublicosAPIView(generics.ListAPIView):
+    queryset = Rol.objects.filter(activo=True)
+    serializer_class = RolSerializer
+    permission_classes = [AllowAny]
+
+
+# =====================================
+# 📢 ANUNCIOS (público, solo lectura)
+# =====================================
+
+class AnunciosAPIView(generics.ListAPIView):
+    serializer_class = AnuncioSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        from django.utils import timezone
+        hoy = timezone.now().date()
+        return Anuncio.objects.filter(
+            activo=True,
+        ).filter(
+            Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=hoy)
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=hoy)
+        ).order_by('orden')

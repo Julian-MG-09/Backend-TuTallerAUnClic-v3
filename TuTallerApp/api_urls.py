@@ -27,7 +27,9 @@ from .api import (
     CalificacionesEstablecimientoAPIView,
     DashboardEmpresaAPIView,
     MisNotificacionesAPIView,DetalleMiCitaAPIView,
-    MarcarLeidaAPIView
+    MarcarLeidaAPIView,
+    CrearResenaAPIView,
+    MisResenasAPIView,
 )
 
 urlpatterns = [
@@ -65,6 +67,8 @@ urlpatterns = [
     # ⭐ CALIFICACIONES
     path('calificaciones/crear/', CrearCalificacionAPIView.as_view()),
     path('calificaciones/establecimiento/<int:establecimiento_id>/', CalificacionesEstablecimientoAPIView.as_view()),
+    path('resenas/crear/', CrearResenaAPIView.as_view()),
+    path('resenas/mis/', MisResenasAPIView.as_view()),
 
     # 📊 DASHBOARD
     path('dashboard/empresa/', DashboardEmpresaAPIView.as_view()),

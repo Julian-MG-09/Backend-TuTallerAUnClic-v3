@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractUser
-from django.db import models
 from django.conf import settings
+from django.db import models
 
 
 # ==============================
@@ -95,8 +95,6 @@ class Vehiculo(models.Model):
 # ⏰ AGENDA
 # ==============================
 
-from django.conf import settings
-
 class Agenda(models.Model):
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     establecimiento = models.ForeignKey("Establecimiento", on_delete=models.CASCADE)  # 🔥 NUEVO
@@ -121,9 +119,11 @@ class Cita(models.Model):
         ('pendiente', 'Pendiente'),
         ('confirmada', 'Confirmada'),
         ('cancelada', 'Cancelada'),
+        ('finalizada', 'Finalizada'),
     ],
     default='pendiente'
     )
+    fecha_finalizacion = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.usuario} - {self.fecha} {self.hora}"
@@ -147,6 +147,8 @@ class PrestacionServicio(models.Model):
         ('cancelada','Cancelada'),
         ('finalizada','Finalizada')
     ])
+    comentario_empresa = models.TextField(blank=True, null=True)
+    fecha_finalizacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ('establecimiento', 'agenda', 'fecha')
@@ -184,6 +186,35 @@ class Notificacion(models.Model):
         return f"{self.usuario.username} - {self.titulo}"
 
         
+        
+        
+        
+# ==============================
+# RESEÑAS
+# ==============================
+
+class Resena(models.Model):
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    establecimiento = models.ForeignKey('Establecimiento', on_delete=models.CASCADE)
+    cita = models.OneToOneField('Cita', on_delete=models.CASCADE)
+
+    calificacion = models.IntegerField()
+    comentario = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.usuario} - {self.calificacion}"
+
+
+
+
+
+
+
+# ==============================
+# ANUNCIOS
+# ==============================
 
 class Anuncio(models.Model):
     TIPO_CHOICES = [
